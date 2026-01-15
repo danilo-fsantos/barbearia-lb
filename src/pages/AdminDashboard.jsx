@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../supabase';
 import { useNavigate } from 'react-router-dom';
-import { LogOut, Clock, User, CheckCircle, XCircle, RefreshCw, Plus, Settings, Calendar as CalIcon, Save, Power, Lock, Unlock, Image as ImageIcon, Trash2, Upload, Home } from 'lucide-react';
-import { format, isToday, parseISO } from 'date-fns';
+import { LogOut, Clock, User, CheckCircle, XCircle, RefreshCw, Plus, Settings, Calendar as CalIcon, Save, Power, Lock, Unlock, Image as ImageIcon, Trash2, Upload, Home, Filter, Calendar } from 'lucide-react';
+import { format, isSameDay, parseISO } from 'date-fns';
 import { ModalAgendamento } from '../components/ModalAgendamento';
 
 export function AdminDashboard() {
@@ -18,7 +18,12 @@ export function AdminDashboard() {
   // UI
   const [loading, setLoading] = useState(true);
   const [modalAberto, setModalAberto] = useState(false);
-  const [filtro, setFiltro] = useState('hoje');
+  
+  // --- NOVO SISTEMA DE FILTRO DE DATA ---
+  // Inicia com a data de HOJE selecionada
+  const [dataFiltro, setDataFiltro] = useState(new Date().toISOString().split('T')[0]);
+  const [usarFiltroData, setUsarFiltroData] = useState(true); // Se false, mostra TODOS
+
   const [novoServico, setNovoServico] = useState({ nome: '', preco: '', duracao_min: 30 });
   const [uploading, setUploading] = useState(false); 
 
@@ -138,7 +143,13 @@ export function AdminDashboard() {
     navigate('/login');
   }
 
-  const agendamentosFiltrados = agendamentos.filter(item => filtro === 'hoje' ? isToday(parseISO(item.data_hora)) : true);
+  // Lógica de Filtro Atualizada:
+  const agendamentosFiltrados = agendamentos.filter(item => {
+    if (!usarFiltroData) return true; // Mostra tudo
+    // Compara se o dia do agendamento é o mesmo dia do filtro selecionado
+    return isSameDay(parseISO(item.data_hora), parseISO(dataFiltro));
+  });
+
   const statusColors = { pendente: 'text-yellow-500 border-yellow-500/30 bg-yellow-500/10', confirmado: 'text-blue-400 border-blue-400/30 bg-blue-400/10', concluido: 'text-green-500 border-green-500/30 bg-green-500/10', cancelado: 'text-red-500 border-red-500/30 bg-red-500/10 opacity-50' };
 
   return (
@@ -152,23 +163,9 @@ export function AdminDashboard() {
           <p className="text-xs text-vintage-200">Barbearia LB - Gerenciamento</p>
         </div>
         
-        {/* BOTÕES DE NAVEGAÇÃO E SAÍDA */}
         <div className="flex items-center gap-3">
-          <button 
-            onClick={() => navigate('/')} 
-            className="flex items-center gap-2 px-4 py-2 rounded bg-vintage-800 border border-vintage-gold/30 text-vintage-gold hover:bg-vintage-gold hover:text-vintage-900 transition-colors font-bold text-sm"
-            title="Voltar para a página inicial"
-          >
-            <Home size={18} /> Ver Site
-          </button>
-          
-          <button 
-            onClick={handleLogout} 
-            className="flex items-center gap-2 px-4 py-2 rounded bg-red-900/20 border border-red-500/30 text-red-400 hover:bg-red-500 hover:text-white transition-colors text-sm"
-            title="Sair do sistema"
-          >
-            <LogOut size={18} /> Sair
-          </button>
+          <button onClick={() => navigate('/')} className="flex items-center gap-2 px-4 py-2 rounded bg-vintage-800 border border-vintage-gold/30 text-vintage-gold hover:bg-vintage-gold hover:text-vintage-900 transition-colors font-bold text-sm" title="Voltar para a página inicial"><Home size={18} /> Ver Site</button>
+          <button onClick={handleLogout} className="flex items-center gap-2 px-4 py-2 rounded bg-red-900/20 border border-red-500/30 text-red-400 hover:bg-red-500 hover:text-white transition-colors text-sm" title="Sair do sistema"><LogOut size={18} /> Sair</button>
         </div>
       </div>
 
@@ -188,15 +185,50 @@ export function AdminDashboard() {
 
       {activeTab === 'agenda' && (
         <>
-          <div className="flex gap-2 mb-4">
-            <button onClick={() => setFiltro('hoje')} className={`px-4 py-2 rounded-full text-sm font-bold ${filtro === 'hoje' ? 'bg-vintage-gold text-vintage-900' : 'bg-vintage-800 text-vintage-200'}`}>📅 Hoje</button>
-            <button onClick={() => setFiltro('todos')} className={`px-4 py-2 rounded-full text-sm font-bold ${filtro === 'todos' ? 'bg-vintage-gold text-vintage-900' : 'bg-vintage-800 text-vintage-200'}`}>∞ Todos</button>
-            <button onClick={buscarAgendamentos} className="ml-auto bg-vintage-800 p-2 rounded-full text-vintage-gold"><RefreshCw size={18} /></button>
+          {/* BARRA DE FILTROS DE DATA */}
+          <div className="flex flex-col md:flex-row gap-3 mb-6 bg-vintage-800 p-3 rounded border border-vintage-gold/10">
+            <div className="flex items-center gap-2 flex-1">
+              <Filter size={18} className="text-vintage-gold" />
+              <span className="text-sm font-bold text-vintage-100">Consultar dia:</span>
+              <input 
+                type="date" 
+                value={dataFiltro}
+                onChange={(e) => { setDataFiltro(e.target.value); setUsarFiltroData(true); }}
+                className="bg-vintage-900 border border-vintage-gold/20 rounded p-1.5 text-vintage-50 outline-none [color-scheme:dark]"
+              />
+            </div>
+            
+            <div className="flex gap-2">
+              <button 
+                onClick={() => { setDataFiltro(new Date().toISOString().split('T')[0]); setUsarFiltroData(true); }}
+                className={`px-4 py-1.5 rounded text-sm font-bold transition-colors ${usarFiltroData && isSameDay(parseISO(dataFiltro), new Date()) ? 'bg-vintage-gold text-vintage-900' : 'bg-vintage-900 text-vintage-200 hover:text-white'}`}
+              >
+                Hoje
+              </button>
+              <button 
+                onClick={() => setUsarFiltroData(false)}
+                className={`px-4 py-1.5 rounded text-sm font-bold transition-colors ${!usarFiltroData ? 'bg-vintage-gold text-vintage-900' : 'bg-vintage-900 text-vintage-200 hover:text-white'}`}
+              >
+                Ver Todos
+              </button>
+              <button onClick={buscarAgendamentos} className="ml-auto bg-vintage-900 p-2 rounded text-vintage-gold hover:text-white"><RefreshCw size={18} /></button>
+            </div>
           </div>
+
           <div className="space-y-4">
-            {loading ? <p className="text-center opacity-50">Carregando...</p> : agendamentosFiltrados.length === 0 ? <p className="text-center opacity-50 py-10">Agenda vazia.</p> : agendamentosFiltrados.map((item) => (
+            {loading ? <p className="text-center opacity-50">Carregando...</p> : agendamentosFiltrados.length === 0 ? <p className="text-center opacity-50 py-10">Nenhum agendamento para este dia.</p> : agendamentosFiltrados.map((item) => (
               <div key={item.id} className={`bg-vintage-800 rounded-lg p-4 border-l-4 shadow-lg ${item.status === 'cancelado' ? 'border-l-red-900 opacity-60' : 'border-l-vintage-gold border-vintage-gold/10'}`}>
-                <div className="flex justify-between items-start mb-2"><div className="flex items-center gap-2 text-xl font-bold text-vintage-50"><Clock size={20} className="text-vintage-gold" /> {format(parseISO(item.data_hora), 'HH:mm')}</div><span className={`text-[10px] px-2 py-0.5 rounded border uppercase font-bold ${statusColors[item.status]}`}>{item.status}</span></div>
+                
+                {/* AQUI ESTÁ A MUDANÇA NO VISUAL: DATA E HORA */}
+                <div className="flex justify-between items-start mb-2">
+                  <div className="flex items-center gap-2 text-lg font-bold text-vintage-50">
+                    <Calendar size={18} className="text-vintage-gold" /> 
+                    {/* Exibe: 15/01 - 14:30 */}
+                    {format(parseISO(item.data_hora), 'dd/MM')} <span className="text-vintage-gold/50 mx-1">|</span> <Clock size={18} className="text-vintage-gold" /> {format(parseISO(item.data_hora), 'HH:mm')}
+                  </div>
+                  <span className={`text-[10px] px-2 py-0.5 rounded border uppercase font-bold ${statusColors[item.status]}`}>{item.status}</span>
+                </div>
+
                 <div className="mb-3"><h3 className="font-serif text-lg text-vintage-100 flex items-center gap-2"><User size={16} /> {item.cliente_nome}</h3><p className="text-sm text-vintage-200/70 ml-6">{item.servicos?.nome}</p></div>
                 {item.status !== 'cancelado' && item.status !== 'concluido' && (<div className="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-vintage-gold/10"><button onClick={() => atualizarStatus(item.id, 'cancelado')} className="flex items-center justify-center gap-2 py-2 rounded text-red-400 hover:bg-red-400/10 text-xs font-bold uppercase"><XCircle size={14} /> Cancelar</button><button onClick={() => atualizarStatus(item.id, 'concluido')} className="flex items-center justify-center gap-2 py-2 rounded bg-vintage-gold text-vintage-900 hover:bg-vintage-goldHover text-xs font-bold uppercase"><CheckCircle size={14} /> Concluir</button></div>)}
               </div>
@@ -208,6 +240,7 @@ export function AdminDashboard() {
 
       {activeTab === 'servicos' && (
         <div className="space-y-8 animate-fadeIn">
+          {/* ... MANTIDO IGUAL ... */}
           <div className="bg-vintage-800 p-4 rounded border border-vintage-gold/20"><h3 className="text-vintage-gold font-serif mb-4 flex items-center gap-2"><Plus size={18}/> Novo Serviço</h3><form onSubmit={criarServico} className="grid gap-3"><input type="text" placeholder="Nome" className="bg-vintage-900 border border-vintage-gold/20 p-2 rounded text-white" value={novoServico.nome} onChange={e => setNovoServico({...novoServico, nome: e.target.value})} required /><div className="grid grid-cols-2 gap-2"><input type="number" placeholder="R$" className="bg-vintage-900 border border-vintage-gold/20 p-2 rounded text-white" value={novoServico.preco} onChange={e => setNovoServico({...novoServico, preco: e.target.value})} required /><input type="number" placeholder="Min" className="bg-vintage-900 border border-vintage-gold/20 p-2 rounded text-white" value={novoServico.duracao_min} onChange={e => setNovoServico({...novoServico, duracao_min: e.target.value})} required /></div><button type="submit" className="bg-vintage-gold text-vintage-900 font-bold py-2 rounded mt-2">Adicionar</button></form></div>
           <div className="space-y-4"><h3 className="text-vintage-200 text-sm uppercase tracking-widest">Editar Existentes</h3>{servicos.map(s => (<div key={s.id} className={`bg-vintage-800 p-4 rounded border ${s.ativo ? 'border-vintage-gold/10' : 'border-red-900/50 opacity-50'}`}><div className="grid gap-2 mb-2"><div className="flex items-center gap-2"><span className="text-xs text-vintage-200 w-12">Nome:</span><input className="bg-transparent border-b border-vintage-gold/20 w-full text-vintage-50 focus:border-vintage-gold outline-none" value={s.nome} onChange={(e) => { const newS = servicos.map(i => i.id === s.id ? {...i, nome: e.target.value} : i); setServicos(newS); }} /></div><div className="flex gap-4"><div className="flex items-center gap-2"><span className="text-xs text-vintage-200">R$:</span><input type="number" className="bg-transparent border-b border-vintage-gold/20 w-20 text-vintage-gold font-bold focus:border-vintage-gold outline-none" value={s.preco} onChange={(e) => { const newS = servicos.map(i => i.id === s.id ? {...i, preco: e.target.value} : i); setServicos(newS); }} /></div><div className="flex items-center gap-2"><span className="text-xs text-vintage-200">Min:</span><input type="number" className="bg-transparent border-b border-vintage-gold/20 w-16 text-vintage-50 focus:border-vintage-gold outline-none" value={s.duracao_min} onChange={(e) => { const newS = servicos.map(i => i.id === s.id ? {...i, duracao_min: e.target.value} : i); setServicos(newS); }} /></div></div></div><div className="flex justify-between items-center mt-3 pt-3 border-t border-vintage-gold/10"><label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={s.ativo} onChange={(e) => { const newS = servicos.map(i => i.id === s.id ? {...i, ativo: e.target.checked} : i); setServicos(newS); }} /><span className={`text-xs ${s.ativo ? 'text-green-400' : 'text-red-400'}`}>{s.ativo ? 'Ativo' : 'Oculto'}</span></label><button onClick={() => salvarEdicaoServico(s)} className="text-vintage-gold hover:text-white bg-vintage-gold/10 p-2 rounded-full"><Save size={18} /></button></div></div>))}</div>
         </div>
@@ -215,6 +248,7 @@ export function AdminDashboard() {
 
       {activeTab === 'galeria' && (
         <div className="space-y-6 animate-fadeIn">
+          {/* ... MANTIDO IGUAL ... */}
           <div className="bg-vintage-800 p-6 rounded border border-vintage-gold/20 text-center">
             <Upload className="mx-auto text-vintage-gold mb-4" size={32} />
             <p className="text-vintage-100 mb-4">Adicionar foto à Galeria</p>
