@@ -32,6 +32,15 @@ export function ModalAgendamento({ isOpen, onClose, servicos }) {
     setLojaConfig(data);
   }
 
+  // Helper para formatar tempo no select
+  function formatDuration(min) {
+    const h = Math.floor(min / 60);
+    const m = min % 60;
+    if (h > 0 && m > 0) return `${h}h ${m}min`;
+    if (h > 0) return `${h}h`;
+    return `${m} min`;
+  }
+
   async function buscarHorariosOcupados() {
     setBuscandoHorarios(true);
     setHoraSelecionada(null);
@@ -40,9 +49,6 @@ export function ModalAgendamento({ isOpen, onClose, servicos }) {
       const servicoEscolhido = servicos.find(s => s.id == servicoId);
       const duracaoServico = servicoEscolhido ? servicoEscolhido.duracao_min : 30;
 
-      // --- CORREÇÃO DO FUSO HORÁRIO ---
-      // Buscamos um intervalo maior (48h) para garantir que pegamos agendamentos 
-      // noturnos que o banco salvou como "dia seguinte" por causa do UTC.
       const dataAlvo = parseISO(data);
       const dataSeguinte = addDays(dataAlvo, 1);
       
@@ -56,39 +62,33 @@ export function ModalAgendamento({ isOpen, onClose, servicos }) {
         .lte('data_hora', endQuery)
         .neq('status', 'cancelado');
 
-      // Prepara a lista de bloqueios com timestamps (números exatos)
       const periodosOcupados = agendamentosDoDia.map(ag => ({
         inicio: new Date(ag.data_hora).getTime(),
         fim: addMinutes(new Date(ag.data_hora), ag.servicos.duracao_min).getTime()
       }));
 
       const [horaInicioConfig, minInicioConfig] = lojaConfig.inicio_expediente.split(':');
-      const HORARIO_FECHAMENTO = 23; 
+      const HORARIO_ULTIMO_AGENDAMENTO = 23; 
       
       let horarioAtual = setMinutes(setHours(new Date(`${data}T00:00:00`), parseInt(horaInicioConfig)), parseInt(minInicioConfig));
-      const horarioFimDia = setMinutes(setHours(new Date(`${data}T00:00:00`), HORARIO_FECHAMENTO), 0);
+      const horarioLimiteLoop = setMinutes(setHours(new Date(`${data}T00:00:00`), HORARIO_ULTIMO_AGENDAMENTO), 1);
 
       const slots = [];
       const agora = new Date();
 
-      while (isBefore(horarioAtual, horarioFimDia)) {
+      while (isBefore(horarioAtual, horarioLimiteLoop)) {
         const fimProvavel = addMinutes(horarioAtual, duracaoServico);
         
-        // Converte para números para comparação matemática perfeita
         const slotInicio = horarioAtual.getTime();
         const slotFim = fimProvavel.getTime();
-
-        const dentroDoExpediente = isBefore(fimProvavel, addMinutes(horarioFimDia, 1));
         
-        // Lógica de Colisão AABB (Infalível)
-        // Se o slot começa ANTES do agendamento terminar E termina DEPOIS do agendamento começar -> Bateu!
         const temConflito = periodosOcupados.some(ocupado => {
           return (slotInicio < ocupado.fim && slotFim > ocupado.inicio);
         });
 
         const horarioJaPassou = isToday(parseISO(data)) && isAfter(agora, horarioAtual);
 
-        if (dentroDoExpediente && !temConflito && !horarioJaPassou) {
+        if (!temConflito && !horarioJaPassou) {
           slots.push(format(horarioAtual, 'HH:mm'));
         }
 
@@ -154,7 +154,20 @@ export function ModalAgendamento({ isOpen, onClose, servicos }) {
               <div className="space-y-1"><label className="text-sm text-vintage-200 ml-1">Seu Nome</label><div className="relative"><User size={18} className="absolute left-3 top-3 text-vintage-gold" /><input required type="text" placeholder="Nome" className="w-full bg-vintage-800 border border-vintage-gold/20 rounded p-2.5 pl-10 text-vintage-50 focus:border-vintage-gold outline-none" value={nome} onChange={e => setNome(e.target.value)} /></div></div>
               <div className="space-y-1"><label className="text-sm text-vintage-200 ml-1">WhatsApp</label><div className="relative"><Phone size={18} className="absolute left-3 top-3 text-vintage-gold" /><input required type="tel" placeholder="(00) 00000-0000" className="w-full bg-vintage-800 border border-vintage-gold/20 rounded p-2.5 pl-10 text-vintage-50 focus:border-vintage-gold outline-none" value={celular} onChange={e => setCelular(e.target.value)} /></div></div>
             </div>
-            <div className="space-y-1"><label className="text-sm text-vintage-200 ml-1">Serviço</label><select required className="w-full bg-vintage-800 border border-vintage-gold/20 rounded p-2.5 text-vintage-50 focus:border-vintage-gold outline-none" value={servicoId} onChange={e => setServicoId(e.target.value)}><option value="">Selecione...</option>{servicos.map(s => <option key={s.id} value={s.id}>{s.nome} ({s.duracao_min} min) - R$ {s.preco}</option>)}</select></div>
+            <div className="space-y-1"><label className="text-sm text-vintage-200 ml-1">Serviço</label>
+            <select required className="w-full bg-vintage-800 border border-vintage-gold/20 rounded p-2.5 text-vintage-50 focus:border-vintage-gold outline-none" value={servicoId} onChange={e => setServicoId(e.target.value)}>
+              <option value="">Selecione...</option>
+              {servicos.map(s => {
+                // Se o nome já tiver parênteses (ex: "Luzes (2h a 4h)"), não mostra a duração automática no select
+                const mostrarDuracao = !s.nome.match(/\(\d+.*h\)/);
+                return (
+                  <option key={s.id} value={s.id}>
+                    {s.nome} {mostrarDuracao ? `(${formatDuration(s.duracao_min)})` : ''} - R$ {s.preco}
+                  </option>
+                );
+              })}
+            </select>
+            </div>
             <div className="space-y-1"><label className="text-sm text-vintage-200 ml-1">Dia</label><div className="relative"><Calendar size={18} className="absolute left-3 top-3 text-vintage-gold" /><input required type="date" min={new Date().toISOString().split('T')[0]} className="w-full bg-vintage-800 border border-vintage-gold/20 rounded p-2.5 pl-10 text-vintage-50 focus:border-vintage-gold outline-none [color-scheme:dark]" value={data} onChange={e => setData(e.target.value)} /></div></div>
             
             {data && servicoId && (
