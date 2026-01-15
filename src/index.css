@@ -1,0 +1,8 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Adicione isso para garantir um fundo escuro padrão no site todo */
+body {
+  @apply bg-vintage-900 text-vintage-50;
+}
