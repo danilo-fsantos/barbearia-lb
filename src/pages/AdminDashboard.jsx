@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../supabase';
 import { useNavigate } from 'react-router-dom';
-import { LogOut, Clock, User, CheckCircle, XCircle, RefreshCw, Plus, Settings, Calendar as CalIcon, Save, Power, Lock, Unlock, Image as ImageIcon, Trash2, Upload } from 'lucide-react';
+import { LogOut, Clock, User, CheckCircle, XCircle, RefreshCw, Plus, Settings, Calendar as CalIcon, Save, Power, Lock, Unlock, Image as ImageIcon, Trash2, Upload, Home } from 'lucide-react';
 import { format, isToday, parseISO } from 'date-fns';
 import { ModalAgendamento } from '../components/ModalAgendamento';
 
@@ -88,12 +88,10 @@ export function AdminDashboard() {
     if (data) setConfig(data);
   }
 
-  // --- ALTERAÇÃO AQUI: CONFIRMAÇÃO DE SEGURANÇA ---
   async function alternarAgenda() {
     const acao = config.agenda_aberta ? "FECHAR" : "ABRIR";
     const confirmacao = confirm(`ATENÇÃO: Você tem certeza que deseja ${acao} a agenda?`);
-    
-    if (!confirmacao) return; // Se ele clicar em Cancelar, para tudo.
+    if (!confirmacao) return;
 
     const novoStatus = !config.agenda_aberta;
     const { error } = await supabase.from('configuracoes').update({ agenda_aberta: novoStatus }).eq('id', config.id);
@@ -147,9 +145,31 @@ export function AdminDashboard() {
     <div className="min-h-screen bg-vintage-900 text-vintage-50 p-4 pb-24">
       <ModalAgendamento isOpen={modalAberto} onClose={() => {setModalAberto(false); buscarAgendamentos();}} servicos={servicos.filter(s => s.ativo)} />
 
-      <div className="flex justify-between items-center mb-6 border-b border-vintage-gold/20 pb-4">
-        <div><h1 className="text-2xl font-serif text-vintage-gold">Painel Admin</h1><p className="text-xs text-vintage-200">Barbearia LB</p></div>
-        <button onClick={handleLogout} className="p-2 text-vintage-200 hover:text-red-400"><LogOut size={20} /></button>
+      {/* HEADER DO PAINEL */}
+      <div className="flex flex-col md:flex-row justify-between items-center mb-6 border-b border-vintage-gold/20 pb-4 gap-4">
+        <div className="text-center md:text-left">
+          <h1 className="text-2xl font-serif text-vintage-gold">Painel Admin</h1>
+          <p className="text-xs text-vintage-200">Barbearia LB - Gerenciamento</p>
+        </div>
+        
+        {/* BOTÕES DE NAVEGAÇÃO E SAÍDA */}
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={() => navigate('/')} 
+            className="flex items-center gap-2 px-4 py-2 rounded bg-vintage-800 border border-vintage-gold/30 text-vintage-gold hover:bg-vintage-gold hover:text-vintage-900 transition-colors font-bold text-sm"
+            title="Voltar para a página inicial"
+          >
+            <Home size={18} /> Ver Site
+          </button>
+          
+          <button 
+            onClick={handleLogout} 
+            className="flex items-center gap-2 px-4 py-2 rounded bg-red-900/20 border border-red-500/30 text-red-400 hover:bg-red-500 hover:text-white transition-colors text-sm"
+            title="Sair do sistema"
+          >
+            <LogOut size={18} /> Sair
+          </button>
+        </div>
       </div>
 
       <div className="bg-vintage-800 p-4 rounded-lg border border-vintage-gold/30 mb-6 shadow-lg">
