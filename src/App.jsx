@@ -11,9 +11,9 @@ function App() {
   const [imagemZoom, setImagemZoom] = useState(null);
 
   // --- CONFIGURAÇÃO ---
-  const WHATSAPP_NUMERO = "5511999999999"; 
-  const INSTAGRAM_LINK = "https://instagram.com/seu_insta";
-  const ENDERECO_TEXTO = "Rua da Barbearia, 123";
+  const WHATSAPP_NUMERO = "5519996301872"; 
+  const INSTAGRAM_LINK = "https://www.instagram.com/barbearialbbarber/";
+  const ENDERECO_TEXTO = "Rua Pedro Savian, 274 Jardim Adriana";
 
   useEffect(() => {
     async function buscarDados() {
